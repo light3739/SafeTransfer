@@ -1,5 +1,5 @@
 definitions:
-  api.FileUploadResponse:
+  upload.FileUploadResponse:
     properties:
       cid:
         type: string
@@ -11,10 +11,38 @@ info:
   title: SafeTransfer API
   version: "1.0"
 paths:
+  /download/{cid}:
+    get:
+      consumes:
+      - application/json
+      description: Downloads a file from IPFS using its CID
+      operationId: download-file
+      parameters:
+      - description: CID of the file to download
+        in: path
+        name: cid
+        required: true
+        type: string
+      produces:
+      - application/octet-stream
+      responses:
+        "200":
+          description: File data
+          schema:
+            type: file
+        "400":
+          description: Bad Request
+          schema:
+            type: string
+        "500":
+          description: Internal Server Error
+          schema:
+            type: string
+      summary: Download a file
   /upload:
     post:
       consumes:
-      - application/json
+      - multipart/form-data
       description: Uploads a file to IPFS and returns the CID.
       parameters:
       - description: File to upload
@@ -28,7 +56,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/api.FileUploadResponse'
+            $ref: '#/definitions/upload.FileUploadResponse'
         "400":
           description: Bad Request
           schema:

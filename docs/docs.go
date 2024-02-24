@@ -15,11 +15,53 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/download/{cid}": {
+            "get": {
+                "description": "Downloads a file from IPFS using its CID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/octet-stream"
+                ],
+                "summary": "Download a file",
+                "operationId": "download-file",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "CID of the file to download",
+                        "name": "cid",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "File data",
+                        "schema": {
+                            "type": "file"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "string"
+                        }
+                    }
+                }
+            }
+        },
         "/upload": {
             "post": {
                 "description": "Uploads a file to IPFS and returns the CID.",
                 "consumes": [
-                    "application/json"
+                    "multipart/form-data"
                 ],
                 "produces": [
                     "application/json"
@@ -41,7 +83,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/api.FileUploadResponse"
+                            "$ref": "#/definitions/upload.FileUploadResponse"
                         }
                     },
                     "400": {
@@ -67,7 +109,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "api.FileUploadResponse": {
+        "upload.FileUploadResponse": {
             "type": "object",
             "properties": {
                 "cid": {

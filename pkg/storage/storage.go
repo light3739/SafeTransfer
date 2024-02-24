@@ -42,3 +42,18 @@ func (is *IPFSStorage) UploadFileToIPFS(file io.Reader) (string, error) {
 
 	return cid, nil
 }
+
+// DownloadFileFromIPFS retrieves a file from IPFS using its CID.
+func (is *IPFSStorage) DownloadFileFromIPFS(cid string) (io.Reader, error) {
+	// Use the IPFS shell to retrieve the file
+	fmt.Println("Downloading file from IPFS...")
+	reader, err := is.shell.Cat(cid)
+	if err != nil {
+		fmt.Printf("Failed to download file from IPFS: %v\n", err)
+		return nil, fmt.Errorf("failed to download file from IPFS: %w", err)
+	}
+
+	fmt.Printf("File downloaded successfully. CID: %s\n", cid)
+
+	return reader, nil
+}
