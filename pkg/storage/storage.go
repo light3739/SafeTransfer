@@ -1,7 +1,9 @@
-// Package storage provides a service for interacting with IPFS for file storage.
+// pkg/storage/storage.go
+
 package storage
 
 import (
+	"SafeTransfer/pkg/crypto" // Import the crypto package
 	"bytes"
 	"fmt"
 	"github.com/ipfs/go-ipfs-api"
@@ -20,40 +22,41 @@ func NewIPFSStorage(apiURL string) *IPFSStorage {
 }
 
 // UploadFileToIPFS uploads a file to IPFS and returns the generated CID.
-func (is *IPFSStorage) UploadFileToIPFS(file io.Reader) (string, error) {
-	// Read the file data
-	data, err := io.ReadAll(file)
+func (is *IPFSStorage) UploadFileToIPFS(file io.Reader, key []byte) (string, error) {
+	// Encrypt the file before uploading
+	encryptedFile, err := crypto.EncryptFile(file, key)
 	if err != nil {
-		return "", fmt.Errorf("failed to read file: %w", err)
+		return "", fmt.Errorf("failed to encrypt file: %w", err)
 	}
 
-	// Log the file data length for debugging
-	fmt.Printf("File data length: %d bytes\n", len(data))
+	// Read the encrypted file data
+	data, err := io.ReadAll(encryptedFile)
+	if err != nil {
+		return "", fmt.Errorf("failed to read encrypted file: %w", err)
+	}
 
-	// Add the file to IPFS
-	fmt.Println("Uploading file to IPFS...")
+	// Add the encrypted file to IPFS
 	cid, err := is.shell.Add(bytes.NewReader(data))
 	if err != nil {
-		fmt.Printf("Failed to upload file to IPFS: %v\n", err)
-		return "", fmt.Errorf("failed to upload file to IPFS: %w", err)
+		return "", fmt.Errorf("failed to upload encrypted file to IPFS: %w", err)
 	}
-
-	fmt.Printf("File uploaded successfully. CID: %s\n", cid)
 
 	return cid, nil
 }
 
 // DownloadFileFromIPFS retrieves a file from IPFS using its CID.
-func (is *IPFSStorage) DownloadFileFromIPFS(cid string) (io.Reader, error) {
-	// Use the IPFS shell to retrieve the file
-	fmt.Println("Downloading file from IPFS...")
+func (is *IPFSStorage) DownloadFileFromIPFS(cid string, key []byte, nonce []byte) (io.Reader, error) {
+	// Use the IPFS shell to retrieve the encrypted file
 	reader, err := is.shell.Cat(cid)
 	if err != nil {
-		fmt.Printf("Failed to download file from IPFS: %v\n", err)
-		return nil, fmt.Errorf("failed to download file from IPFS: %w", err)
+		return nil, fmt.Errorf("failed to download encrypted file from IPFS: %w", err)
 	}
 
-	fmt.Printf("File downloaded successfully. CID: %s\n", cid)
+	// Decrypt the file after downloading
+	decryptedFile, err := crypto.DecryptFile(reader, key, nonce)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt file: %w", err)
+	}
 
-	return reader, nil
+	return decryptedFile, nil
 }
