@@ -21,27 +21,27 @@ func NewIPFSStorage(apiURL string) *IPFSStorage {
 	return &IPFSStorage{shell: shell}
 }
 
-// UploadFileToIPFS uploads a file to IPFS and returns the generated CID.
-func (is *IPFSStorage) UploadFileToIPFS(file io.Reader, key []byte) (string, error) {
+// UploadFileToIPFS uploads a file to IPFS and returns the generated CID and the nonce.
+func (is *IPFSStorage) UploadFileToIPFS(file io.Reader, key []byte) (string, []byte, error) {
 	// Encrypt the file before uploading
-	encryptedFile, err := crypto.EncryptFile(file, key)
+	encryptedFile, nonce, err := crypto.EncryptFile(file, key)
 	if err != nil {
-		return "", fmt.Errorf("failed to encrypt file: %w", err)
+		return "", nil, fmt.Errorf("failed to encrypt file: %w", err)
 	}
 
 	// Read the encrypted file data
 	data, err := io.ReadAll(encryptedFile)
 	if err != nil {
-		return "", fmt.Errorf("failed to read encrypted file: %w", err)
+		return "", nil, fmt.Errorf("failed to read encrypted file: %w", err)
 	}
 
 	// Add the encrypted file to IPFS
-	cid, err := is.shell.Add(bytes.NewReader(data))
-	if err != nil {
-		return "", fmt.Errorf("failed to upload encrypted file to IPFS: %w", err)
+	cid, addErr := is.shell.Add(bytes.NewReader(data))
+	if addErr != nil {
+		return "", nil, fmt.Errorf("failed to upload encrypted file to IPFS: %w", addErr)
 	}
 
-	return cid, nil
+	return cid, nonce, nil
 }
 
 // DownloadFileFromIPFS retrieves a file from IPFS using its CID.

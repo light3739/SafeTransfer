@@ -5,7 +5,11 @@ package main
 import (
 	_ "SafeTransfer/docs"
 	"SafeTransfer/pkg/api"
+	"SafeTransfer/pkg/db"
+	"SafeTransfer/pkg/model"
 	"SafeTransfer/pkg/storage"
+	"crypto/rand"
+	"crypto/rsa"
 	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/swaggo/http-swagger"
@@ -13,14 +17,26 @@ import (
 	"net/http"
 )
 
-// @title SafeTransfer API
-// @version 1.0
-// @description A secure, decentralized file sharing platform with end-to-end encryption, digital signatures, temporary links, and blockchain audit trails.
-
 func main() {
+	dataSourceName := "user=test2 dbname=test2 password=test2 host=localhost sslmode=disable"
+	database, err := db.NewDatabase(dataSourceName)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	// Migrate the schema
+	err = database.AutoMigrate(&model.File{}) // Corrected line
+	if err != nil {
+		log.Fatalf("Failed to migrate schema: %v", err)
+	}
+
 	// Set up router
 	ipfsStorage := storage.NewIPFSStorage("/ip4/127.0.0.1/tcp/5001")
-	apiHandler := api.NewAPIHandler(ipfsStorage)
+	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		log.Fatalf("Failed to generate private key: %v", err)
+	}
+	apiHandler := api.NewAPIHandler(ipfsStorage, database, privateKey)
 
 	// Initialize Chi router
 	router := chi.NewRouter()
@@ -35,7 +51,7 @@ func main() {
 	addr := fmt.Sprintf(":%d", port)
 	fmt.Printf("Starting SafeTransfer server on %s...\n", addr)
 
-	err := http.ListenAndServe(addr, router)
+	err = http.ListenAndServe(addr, router)
 	if err != nil {
 		log.Fatal("Error starting server:", err)
 	}

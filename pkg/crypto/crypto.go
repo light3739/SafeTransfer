@@ -10,27 +10,33 @@ import (
 	"crypto/rsa"
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
 	"io"
 )
 
 // EncryptFile encrypts the given file using AES.
-func EncryptFile(file io.Reader, key []byte) (io.Reader, error) {
+func EncryptFile(file io.Reader, key []byte) (io.Reader, []byte, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
+	// Generate a random IV for CTR mode
+	iv := make([]byte, aes.BlockSize)
+	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
+		return nil, nil, err
 	}
 
-	nonce := make([]byte, gcm.NonceSize())
-	if _, err = io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, err
-	}
+	// Use the IV with cipher.NewCTR
+	stream := cipher.NewCTR(block, iv)
 
-	return &cipher.StreamReader{S: cipher.NewCTR(block, nonce), R: file}, nil
+	// Create a reader that encrypts the input file
+	encryptedFile := &cipher.StreamReader{S: stream, R: file}
+
+	// Log the IV to ensure it's unique for each encryption
+	fmt.Printf("IV: %x\n", iv)
+
+	return encryptedFile, iv, nil
 }
 
 // DecryptFile decrypts the given file using AES.
@@ -40,12 +46,13 @@ func DecryptFile(encryptedFile io.Reader, key []byte, nonce []byte) (io.Reader, 
 		return nil, err
 	}
 
-	_, err = cipher.NewGCM(block)
-	if err != nil {
-		return nil, err
-	}
+	// Use the nonce as the IV for CTR mode
+	stream := cipher.NewCTR(block, nonce)
 
-	return &cipher.StreamReader{S: cipher.NewCTR(block, nonce), R: encryptedFile}, nil
+	// Create a reader that decrypts the input file
+	decryptedFile := &cipher.StreamReader{S: stream, R: encryptedFile}
+
+	return decryptedFile, nil
 }
 
 // SignFile signs the given file using RSA.
