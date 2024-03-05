@@ -4,7 +4,9 @@ package download
 
 import (
 	"SafeTransfer/pkg/api/response"
+	"SafeTransfer/pkg/db"
 	"SafeTransfer/pkg/storage"
+	"encoding/base64"
 	"github.com/go-chi/chi"
 	"net/http"
 )
@@ -12,11 +14,12 @@ import (
 // Handler represents the handler for file download endpoints.
 type Handler struct {
 	ipfsStorage *storage.IPFSStorage
+	db          *db.Database // Add this line
 }
 
 // NewDownloadHandler creates a new instance of DownloadHandler.
-func NewDownloadHandler(ipfsStorage *storage.IPFSStorage) *Handler {
-	return &Handler{ipfsStorage: ipfsStorage}
+func NewDownloadHandler(ipfsStorage *storage.IPFSStorage, db *db.Database) *Handler {
+	return &Handler{ipfsStorage: ipfsStorage, db: db} // Pass the db instance here
 }
 
 // HandleFileDownload handles the file download process.
@@ -37,11 +40,33 @@ func (h *Handler) HandleFileDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reader, err := h.ipfsStorage.DownloadFileFromIPFS(cid)
+	// Retrieve the stored file metadata from the database
+	fileMetadata, err := h.db.GetFileMetadataByCID(cid)
+	if err != nil {
+		response.RespondWithError(w, http.StatusInternalServerError, "Failed to retrieve file metadata")
+		return
+	}
+
+	// Decode the stored encryption key and nonce
+	encryptionKey, err := base64.StdEncoding.DecodeString(fileMetadata.EncryptionKey)
+	if err != nil {
+		response.RespondWithError(w, http.StatusInternalServerError, "Failed to decode encryption key")
+		return
+	}
+	nonce, err := base64.StdEncoding.DecodeString(fileMetadata.Nonce)
+	if err != nil {
+		response.RespondWithError(w, http.StatusInternalServerError, "Failed to decode nonce")
+		return
+	}
+
+	// Download the file from IPFS using the key and nonce
+	reader, err := h.ipfsStorage.DownloadFileFromIPFS(cid, encryptionKey, nonce)
 	if err != nil {
 		response.RespondWithError(w, http.StatusInternalServerError, "Failed to download file")
 		return
 	}
 
+	// Assuming you no longer need to verify the file's signature during download
+	// Send the file to the client
 	response.SendFile(w, reader, cid)
 }
