@@ -24,6 +24,14 @@ func NewDatabase(dataSourceName string) (*Database, error) {
 	return &Database{db}, nil
 }
 
+func (d *Database) Close() error {
+	sqlDB, err := d.DB.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Close()
+}
+
 // SaveFileMetadata saves the file metadata to the database.
 func (d *Database) SaveFileMetadata(fileMetadata model.File) error {
 	result := d.Create(&fileMetadata)
