@@ -1,5 +1,3 @@
-// main.go
-
 package main
 
 import (
@@ -15,44 +13,68 @@ import (
 	"github.com/swaggo/http-swagger"
 	"log"
 	"net/http"
+	"os"
 )
 
+const defaultPort = "8083"
+
 func main() {
+	database := setupDatabase()
+	defer database.Close()
+
+	ipfsStorage := setupIPFSStorage()
+	privateKey := generatePrivateKey()
+
+	apiHandler := api.NewAPIHandler(ipfsStorage, database, privateKey)
+	router := setupRouter(apiHandler)
+
+	startServer(router)
+}
+
+func setupDatabase() *db.Database {
 	dataSourceName := "user=test2 dbname=test2 password=test2 host=localhost sslmode=disable"
 	database, err := db.NewDatabase(dataSourceName)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	// Migrate the schema
-	err = database.AutoMigrate(&model.File{}) // Corrected line
+	err = database.AutoMigrate(&model.File{})
 	if err != nil {
 		log.Fatalf("Failed to migrate schema: %v", err)
 	}
 
-	// Set up router
-	ipfsStorage := storage.NewIPFSStorage("/ip4/127.0.0.1/tcp/5001")
+	return database
+}
+
+func setupIPFSStorage() *storage.IPFSStorage {
+	return storage.NewIPFSStorage("/ip4/127.0.0.1/tcp/5001")
+}
+
+func generatePrivateKey() *rsa.PrivateKey {
 	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		log.Fatalf("Failed to generate private key: %v", err)
 	}
-	apiHandler := api.NewAPIHandler(ipfsStorage, database, privateKey)
+	return privateKey
+}
 
-	// Initialize Chi router
+func setupRouter(apiHandler *api.Handler) *chi.Mux {
 	router := chi.NewRouter()
-
-	// Register Swagger documentation route
 	router.Mount("/swagger", httpSwagger.WrapHandler)
-
 	apiHandler.RegisterRoutes(router)
+	return router
+}
 
-	// Start HTTP server
-	port := 8083 // Change to your desired port
-	addr := fmt.Sprintf(":%d", port)
+func startServer(router *chi.Mux) {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = defaultPort
+	}
+
+	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Starting SafeTransfer server on %s...\n", addr)
 
-	err = http.ListenAndServe(addr, router)
-	if err != nil {
+	if err := http.ListenAndServe(addr, router); err != nil {
 		log.Fatal("Error starting server:", err)
 	}
 }
