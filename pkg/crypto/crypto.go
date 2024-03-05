@@ -1,5 +1,3 @@
-// pkg/crypto/crypto.go
-
 package crypto
 
 import (
@@ -14,44 +12,39 @@ import (
 	"io"
 )
 
-// EncryptFile encrypts the given file using AES.
-func EncryptFile(file io.Reader, key []byte) (io.Reader, []byte, error) {
+// newAesCtrStream initializes an AES cipher in CTR mode with the given key and IV.
+func newAesCtrStream(key, iv []byte) (cipher.Stream, error) {
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, nil, err
+		return nil, fmt.Errorf("failed to create cipher block: %w", err)
 	}
+	return cipher.NewCTR(block, iv), nil
+}
 
-	// Generate a random IV for CTR mode
+// EncryptFile encrypts the given file using AES in CTR mode.
+func EncryptFile(file io.Reader, key []byte) (io.Reader, []byte, error) {
 	iv := make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("failed to generate IV: %w", err)
 	}
 
-	// Use the IV with cipher.NewCTR
-	stream := cipher.NewCTR(block, iv)
+	stream, err := newAesCtrStream(key, iv)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to initialize AES CTR stream: %w", err)
+	}
 
-	// Create a reader that encrypts the input file
 	encryptedFile := &cipher.StreamReader{S: stream, R: file}
-
-	// Log the IV to ensure it's unique for each encryption
-	fmt.Printf("IV: %x\n", iv)
-
 	return encryptedFile, iv, nil
 }
 
-// DecryptFile decrypts the given file using AES.
-func DecryptFile(encryptedFile io.Reader, key []byte, nonce []byte) (io.Reader, error) {
-	block, err := aes.NewCipher(key)
+// DecryptFile decrypts the given file using AES in CTR mode.
+func DecryptFile(encryptedFile io.Reader, key []byte, iv []byte) (io.Reader, error) {
+	stream, err := newAesCtrStream(key, iv)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to initialize AES CTR stream: %w", err)
 	}
 
-	// Use the nonce as the IV for CTR mode
-	stream := cipher.NewCTR(block, nonce)
-
-	// Create a reader that decrypts the input file
 	decryptedFile := &cipher.StreamReader{S: stream, R: encryptedFile}
-
 	return decryptedFile, nil
 }
 
@@ -59,12 +52,12 @@ func DecryptFile(encryptedFile io.Reader, key []byte, nonce []byte) (io.Reader, 
 func SignFile(file io.Reader, privateKey *rsa.PrivateKey) (string, error) {
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to hash file: %w", err)
 	}
 
 	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hash.Sum(nil))
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to sign hash: %w", err)
 	}
 
 	return base64.StdEncoding.EncodeToString(signature), nil
@@ -74,13 +67,17 @@ func SignFile(file io.Reader, privateKey *rsa.PrivateKey) (string, error) {
 func VerifyFile(file io.Reader, signature string, publicKey *rsa.PublicKey) error {
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return err
+		return fmt.Errorf("failed to hash file for verification: %w", err)
 	}
 
 	signatureBytes, err := base64.StdEncoding.DecodeString(signature)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to decode signature: %w", err)
 	}
 
-	return rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hash.Sum(nil), signatureBytes)
+	if err := rsa.VerifyPKCS1v15(publicKey, crypto.SHA256, hash.Sum(nil), signatureBytes); err != nil {
+		return fmt.Errorf("failed to verify signature: %w", err)
+	}
+
+	return nil
 }
