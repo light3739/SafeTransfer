@@ -1,11 +1,10 @@
-package upload
+package api
 
 import (
-	"SafeTransfer/pkg/api/response"
-	"SafeTransfer/pkg/crypto"
-	"SafeTransfer/pkg/db"
-	"SafeTransfer/pkg/model"
-	"SafeTransfer/pkg/storage"
+	"SafeTransfer/internal/crypto"
+	"SafeTransfer/internal/db"
+	"SafeTransfer/internal/model"
+	"SafeTransfer/internal/storage"
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/base64"
@@ -15,6 +14,7 @@ import (
 	"net/http"
 )
 
+// TODO : Transfer logic from upload to service module
 const (
 	maxMultipartFormSize = 10 << 20 // 10 MB
 	encryptionKeySize    = 32       // 32 bytes for AES-256
@@ -39,20 +39,20 @@ type FileUploadResponse struct {
 // HandleFileUpload handles the file upload endpoint.
 func HandleFileUpload(w http.ResponseWriter, r *http.Request, ipfsStorage *storage.IPFSStorage, privateKey *rsa.PrivateKey, db *db.Database) {
 	if err := r.ParseMultipartForm(maxMultipartFormSize); err != nil {
-		response.RespondWithError(w, http.StatusInternalServerError, "Failed to parse form data")
+		RespondWithError(w, http.StatusInternalServerError, "Failed to parse form data")
 		return
 	}
 
 	file, _, err := r.FormFile("file")
 	if err != nil {
-		response.RespondWithError(w, http.StatusBadRequest, "Failed to get file from form data")
+		RespondWithError(w, http.StatusBadRequest, "Failed to get file from form data")
 		return
 	}
 	defer file.Close()
 
 	signatureStr, key, err := processFile(file, privateKey)
 	if err != nil {
-		response.RespondWithError(w, http.StatusInternalServerError, err.Error())
+		RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -61,7 +61,7 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request, ipfsStorage *stora
 
 	cid, nonce, err := ipfsStorage.UploadFileToIPFS(file, key)
 	if err != nil {
-		response.RespondWithError(w, http.StatusInternalServerError, "Failed to upload file to IPFS")
+		RespondWithError(w, http.StatusInternalServerError, "Failed to upload file to IPFS")
 		return
 	}
 
@@ -74,11 +74,11 @@ func HandleFileUpload(w http.ResponseWriter, r *http.Request, ipfsStorage *stora
 	}
 
 	if err := db.SaveFileMetadata(fileMetadata); err != nil {
-		response.RespondWithError(w, http.StatusInternalServerError, "Failed to save file metadata")
+		RespondWithError(w, http.StatusInternalServerError, "Failed to save file metadata")
 		return
 	}
 
-	response.RespondWithJSON(w, http.StatusOK, FileUploadResponse{CID: cid})
+	RespondWithJSON(w, http.StatusOK, FileUploadResponse{CID: cid})
 }
 
 func processFile(file multipart.File, privateKey *rsa.PrivateKey) (signatureStr string, key []byte, err error) {

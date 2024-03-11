@@ -2,10 +2,10 @@ package main
 
 import (
 	_ "SafeTransfer/docs"
-	"SafeTransfer/pkg/api"
-	"SafeTransfer/pkg/db"
-	"SafeTransfer/pkg/model"
-	"SafeTransfer/pkg/storage"
+	"SafeTransfer/internal/api"
+	"SafeTransfer/internal/db"
+	"SafeTransfer/internal/model"
+	"SafeTransfer/internal/storage"
 	"crypto/rand"
 	"crypto/rsa"
 	"fmt"
@@ -18,6 +18,10 @@ import (
 
 const defaultPort = "8083"
 
+// @title SafeTransfer API
+// @description This is a sample server for SafeTransfer.
+// @version 1.0
+// @host localhost:8080
 func main() {
 	database := setupDatabase()
 	defer database.Close()
@@ -32,7 +36,7 @@ func main() {
 }
 
 func setupDatabase() *db.Database {
-	dataSourceName := "user=test2 dbname=test2 password=test2 host=localhost sslmode=disable"
+	dataSourceName := "user=postgres dbname=postgres password=postgres host=localhost sslmode=disable"
 	database, err := db.NewDatabase(dataSourceName)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)

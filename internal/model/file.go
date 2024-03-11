@@ -1,4 +1,4 @@
-// pkg/model/file.go
+// internal/model/file.go
 
 package model
 

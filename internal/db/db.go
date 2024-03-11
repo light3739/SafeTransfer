@@ -1,7 +1,7 @@
 package db
 
 import (
-	"SafeTransfer/pkg/model"
+	"SafeTransfer/internal/model"
 	"fmt"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"

@@ -1,9 +1,9 @@
-// pkg/storage/storage.go
+// internal/storage/storage.go
 
 package storage
 
 import (
-	"SafeTransfer/pkg/crypto" // Import the crypto package
+	"SafeTransfer/internal/crypto" // Import the crypto package
 	"bytes"
 	"fmt"
 	"github.com/ipfs/go-ipfs-api"

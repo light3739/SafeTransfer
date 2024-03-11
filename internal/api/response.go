@@ -1,6 +1,6 @@
 // response/response.go
 
-package response
+package api
 
 import (
 	"encoding/json"
