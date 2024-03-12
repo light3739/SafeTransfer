@@ -9,9 +9,8 @@ import (
 )
 
 // RespondWithError sends an error response in JSON format.
-func RespondWithError(w http.ResponseWriter, status int, message string) {
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": message})
+func RespondWithError(w http.ResponseWriter, code int, message string) {
+	RespondWithJSON(w, code, map[string]string{"error": message})
 }
 
 // RespondWithJSON sends a JSON response with the provided data.

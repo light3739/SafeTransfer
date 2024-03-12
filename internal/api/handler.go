@@ -1,36 +1,63 @@
 package api
 
 import (
-	"SafeTransfer/internal/db"
-	"SafeTransfer/internal/storage"
-	"crypto/rsa"
+	"SafeTransfer/internal/service"
 	"github.com/go-chi/chi"
 	"net/http"
 )
 
-// Handler represents the handler for API endpoints.
 type Handler struct {
-	ipfsStorage *storage.IPFSStorage
-	db          *db.Database
-	privateKey  *rsa.PrivateKey
+	FileService     *service.FileService
+	DownloadService *service.DownloadService
 }
 
-// NewAPIHandler creates a new instance of APIHandler.
-func NewAPIHandler(ipfsStorage *storage.IPFSStorage, db *db.Database, privateKey *rsa.PrivateKey) *Handler {
+func NewAPIHandler(fileService *service.FileService, downloadService *service.DownloadService) *Handler {
 	return &Handler{
-		ipfsStorage: ipfsStorage,
-		db:          db,
-		privateKey:  privateKey,
+		FileService:     fileService,
+		DownloadService: downloadService,
 	}
 }
 
-// RegisterRoutes registers API routes to the provided router.
 func (h *Handler) RegisterRoutes(r chi.Router) {
-	r.Post("/upload", h.HandleFileUpload)
-	r.Get("/download/{cid}", h.HandleFileDownload)
+	r.Post("/upload", h.handleFileUpload)
+	r.Get("/download/{cid}", h.handleFileDownload)
 }
 
-// HandleFileUpload handles the file upload endpoint.
-func (h *Handler) HandleFileUpload(w http.ResponseWriter, r *http.Request) {
-	HandleFileUpload(w, r, h.ipfsStorage, h.privateKey, h.db)
+func (h *Handler) handleFileUpload(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(service.MaxMultipartFormSize); err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to parse form data")
+		return
+	}
+
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		RespondWithError(w, http.StatusBadRequest, "Failed to get file from form data")
+		return
+	}
+	defer file.Close()
+
+	cid, err := h.FileService.UploadFile(file)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]string{"cid": cid})
+}
+
+func (h *Handler) handleFileDownload(w http.ResponseWriter, r *http.Request) {
+	cid := chi.URLParam(r, "cid")
+	if cid == "" {
+		RespondWithError(w, http.StatusBadRequest, "CID is required")
+		return
+	}
+
+	reader, err := h.DownloadService.DownloadFile(cid)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer reader.Close()
+
+	SendFile(w, reader, cid)
 }
