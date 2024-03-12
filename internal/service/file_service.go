@@ -2,8 +2,8 @@ package service
 
 import (
 	"SafeTransfer/internal/crypto"
-	"SafeTransfer/internal/db"
 	"SafeTransfer/internal/model"
+	"SafeTransfer/internal/repository"
 	"SafeTransfer/internal/storage"
 	"crypto/rand"
 	"crypto/rsa"
@@ -20,18 +20,20 @@ const (
 
 type FileService struct {
 	IPFSStorage *storage.IPFSStorage
-	DB          *db.Database
+	FileRepo    repository.FileRepository // Use FileRepository instead of direct database access
 	PrivateKey  *rsa.PrivateKey
 }
 
-func NewFileService(ipfsStorage *storage.IPFSStorage, db *db.Database, privateKey *rsa.PrivateKey) *FileService {
+// NewFileService creates a new instance of FileService with dependencies injected.
+func NewFileService(ipfsStorage *storage.IPFSStorage, fileRepo repository.FileRepository, privateKey *rsa.PrivateKey) *FileService {
 	return &FileService{
 		IPFSStorage: ipfsStorage,
-		DB:          db,
+		FileRepo:    fileRepo,
 		PrivateKey:  privateKey,
 	}
 }
 
+// UploadFile handles the uploading of a file, including processing, encryption, and storage.
 func (fs *FileService) UploadFile(file multipart.File) (string, error) {
 	signatureStr, key, err := fs.processFile(file)
 	if err != nil {
@@ -47,20 +49,22 @@ func (fs *FileService) UploadFile(file multipart.File) (string, error) {
 	}
 
 	nonceStr := base64.StdEncoding.EncodeToString(nonce)
-	fileMetadata := model.File{
+	fileMetadata := &model.File{ // Note: Use a pointer to match the repository interface
 		CID:           cid,
 		EncryptionKey: base64.StdEncoding.EncodeToString(key),
 		Nonce:         nonceStr,
 		Signature:     signatureStr,
 	}
 
-	if err := fs.DB.SaveFileMetadata(fileMetadata); err != nil {
+	// Use the FileRepository to save file metadata
+	if err := fs.FileRepo.SaveFileMetadata(fileMetadata); err != nil {
 		return "", err
 	}
 
 	return cid, nil
 }
 
+// processFile handles the processing of the file, including signing and encryption key generation.
 func (fs *FileService) processFile(file multipart.File) (signatureStr string, key []byte, err error) {
 	// Sign the file
 	signature, err := crypto.SignFile(file, fs.PrivateKey)

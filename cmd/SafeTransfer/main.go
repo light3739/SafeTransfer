@@ -5,6 +5,7 @@ import (
 	"SafeTransfer/internal/api"
 	"SafeTransfer/internal/db"
 	"SafeTransfer/internal/model"
+	"SafeTransfer/internal/repository"
 	"SafeTransfer/internal/service"
 	"SafeTransfer/internal/storage"
 	"crypto/rand"
@@ -31,8 +32,11 @@ func main() {
 	ipfsStorage := setupIPFSStorage()
 	privateKey := generatePrivateKey()
 
-	fileService := service.NewFileService(ipfsStorage, database, privateKey)
-	downloadService := service.NewDownloadService(ipfsStorage, database)
+	fileRepo := repository.NewFileRepository(database)
+
+	// Now pass fileRepo to NewFileService and NewDownloadService
+	fileService := service.NewFileService(ipfsStorage, fileRepo, privateKey)
+	downloadService := service.NewDownloadService(ipfsStorage, fileRepo)
 
 	apiHandler := api.NewAPIHandler(fileService, downloadService)
 	router := setupRouter(apiHandler)

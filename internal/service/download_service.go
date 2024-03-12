@@ -1,29 +1,30 @@
 package service
 
 import (
-	"SafeTransfer/internal/db"
+	"SafeTransfer/internal/repository"
 	"SafeTransfer/internal/storage"
 	"encoding/base64"
 	"fmt"
 	"io"
-	"io/ioutil" // Import ioutil for NopCloser
 )
 
 type DownloadService struct {
 	IPFSStorage *storage.IPFSStorage
-	DB          *db.Database
+	FileRepo    repository.FileRepository // Use FileRepository instead of direct database access
 }
 
-func NewDownloadService(ipfsStorage *storage.IPFSStorage, db *db.Database) *DownloadService {
+// NewDownloadService creates a new instance of DownloadService with dependencies injected.
+func NewDownloadService(ipfsStorage *storage.IPFSStorage, fileRepo repository.FileRepository) *DownloadService {
 	return &DownloadService{
 		IPFSStorage: ipfsStorage,
-		DB:          db,
+		FileRepo:    fileRepo,
 	}
 }
 
+// DownloadFile handles the downloading of a file by its CID.
 func (ds *DownloadService) DownloadFile(cid string) (io.ReadCloser, error) {
-	// Retrieve the stored file metadata from the database
-	fileMetadata, err := ds.DB.GetFileMetadataByCID(cid)
+	// Retrieve the stored file metadata from the repository
+	fileMetadata, err := ds.FileRepo.GetFileMetadataByCID(cid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to retrieve file metadata: %w", err)
 	}
@@ -44,6 +45,5 @@ func (ds *DownloadService) DownloadFile(cid string) (io.ReadCloser, error) {
 		return nil, fmt.Errorf("failed to download file: %w", err)
 	}
 
-	// Wrap the reader with NopCloser to satisfy the io.ReadCloser interface
-	return ioutil.NopCloser(reader), nil
+	return io.NopCloser(reader), nil
 }
