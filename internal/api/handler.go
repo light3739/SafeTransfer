@@ -9,18 +9,21 @@ import (
 type Handler struct {
 	FileService     *service.FileService
 	DownloadService *service.DownloadService
+	UserService     *service.UserService
 }
 
-func NewAPIHandler(fileService *service.FileService, downloadService *service.DownloadService) *Handler {
+func NewAPIHandler(fileService *service.FileService, downloadService *service.DownloadService, userService *service.UserService) *Handler {
 	return &Handler{
 		FileService:     fileService,
 		DownloadService: downloadService,
+		UserService:     userService,
 	}
 }
 
 func (h *Handler) RegisterRoutes(r chi.Router) {
 	r.Post("/upload", h.handleFileUpload)
 	r.Get("/download/{cid}", h.handleFileDownload)
+	r.Get("/nonce/{ethereumAddress}", h.handleGetNonce)
 }
 
 func (h *Handler) handleFileUpload(w http.ResponseWriter, r *http.Request) {
@@ -60,4 +63,20 @@ func (h *Handler) handleFileDownload(w http.ResponseWriter, r *http.Request) {
 	defer reader.Close()
 
 	SendFile(w, reader, cid)
+}
+
+func (h *Handler) handleGetNonce(w http.ResponseWriter, r *http.Request) {
+	ethereumAddress := chi.URLParam(r, "ethereumAddress")
+	if ethereumAddress == "" {
+		RespondWithError(w, http.StatusBadRequest, "Ethereum address is required")
+		return
+	}
+
+	nonce, err := h.UserService.GenerateNonceForUser(ethereumAddress)
+	if err != nil {
+		RespondWithError(w, http.StatusInternalServerError, "Failed to generate nonce")
+		return
+	}
+
+	RespondWithJSON(w, http.StatusOK, map[string]string{"nonce": nonce})
 }

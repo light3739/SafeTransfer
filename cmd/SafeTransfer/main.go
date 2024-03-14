@@ -37,8 +37,10 @@ func main() {
 	// Now pass fileRepo to NewFileService and NewDownloadService
 	fileService := service.NewFileService(ipfsStorage, fileRepo, privateKey)
 	downloadService := service.NewDownloadService(ipfsStorage, fileRepo)
+	userRepo := repository.NewUserRepository(database)
+	userService := service.NewUserService(userRepo)
 
-	apiHandler := api.NewAPIHandler(fileService, downloadService)
+	apiHandler := api.NewAPIHandler(fileService, downloadService, userService)
 	router := setupRouter(apiHandler)
 
 	startServer(router)
@@ -78,6 +80,7 @@ func setupRouter(apiHandler *api.Handler) *chi.Mux {
 	apiHandler.RegisterRoutes(router)
 	return router
 }
+
 func corsHandler() func(http.Handler) http.Handler {
 	return cors.New(cors.Options{
 		AllowedOrigins:   []string{"*"},
