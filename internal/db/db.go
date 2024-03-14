@@ -21,7 +21,7 @@ func NewDatabase(dataSourceName string) (*Database, error) {
 	}
 
 	// Automatically migrate your schema, ideally in development environments only.
-	if err := db.AutoMigrate(&model.File{}); err != nil {
+	if err := db.AutoMigrate(&model.File{}, &model.User{}); err != nil {
 		log.Fatalf("Failed to auto-migrate database schema: %v", err)
 	}
 
