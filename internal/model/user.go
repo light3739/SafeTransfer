@@ -9,5 +9,5 @@ import (
 type User struct {
 	gorm.Model
 	EthereumAddress string `gorm:"uniqueIndex"` // Unique Ethereum address of the user
-	Nonce           string // Nonce for authentication
+	Nonce           string
 }
