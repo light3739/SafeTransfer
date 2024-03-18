@@ -5,6 +5,7 @@
 /.idea
 /docs
 .docs
+.env
 # Binaries for programs and plugins
 *.exe
 *.exe~

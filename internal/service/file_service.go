@@ -34,7 +34,7 @@ func NewFileService(ipfsStorage *storage.IPFSStorage, fileRepo repository.FileRe
 }
 
 // UploadFile handles the uploading of a file, including processing, encryption, and storage.
-func (fs *FileService) UploadFile(file multipart.File) (string, error) {
+func (fs *FileService) UploadFile(file multipart.File, ethereumAddress string) (string, error) {
 	signatureStr, key, err := fs.processFile(file)
 	if err != nil {
 		return "", err
@@ -50,10 +50,11 @@ func (fs *FileService) UploadFile(file multipart.File) (string, error) {
 
 	nonceStr := base64.StdEncoding.EncodeToString(nonce)
 	fileMetadata := &model.File{ // Note: Use a pointer to match the repository interface
-		CID:           cid,
-		EncryptionKey: base64.StdEncoding.EncodeToString(key),
-		Nonce:         nonceStr,
-		Signature:     signatureStr,
+		CID:             cid,
+		EncryptionKey:   base64.StdEncoding.EncodeToString(key),
+		Nonce:           nonceStr,
+		Signature:       signatureStr,
+		EthereumAddress: ethereumAddress, // Associate the file with the Ethereum address
 	}
 
 	// Use the FileRepository to save file metadata
