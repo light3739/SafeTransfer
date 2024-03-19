@@ -63,13 +63,18 @@ func (h *Handler) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	ethereumAddress := r.Header.Get("EthereumAddress")
-	cid, err := h.FileService.UploadFile(file, ethereumAddress)
+	cid, originalFileHash, err := h.FileService.UploadFile(file, ethereumAddress)
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	RespondWithJSON(w, http.StatusOK, map[string]string{"cid": cid})
+	response := map[string]string{
+		"cid":              cid,
+		"originalFileHash": originalFileHash,
+	}
+
+	RespondWithJSON(w, http.StatusOK, response)
 }
 
 func (h *Handler) handleFileDownload(w http.ResponseWriter, r *http.Request) {
