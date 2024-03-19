@@ -49,18 +49,18 @@ func DecryptFile(encryptedFile io.Reader, key []byte, iv []byte) (io.Reader, err
 }
 
 // SignFile signs the given file using RSA.
-func SignFile(file io.Reader, privateKey *rsa.PrivateKey) (string, error) {
+func SignFile(file io.Reader, privateKey *rsa.PrivateKey) ([]byte, error) {
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return "", fmt.Errorf("failed to hash file: %w", err)
+		return nil, fmt.Errorf("failed to hash file: %w", err)
 	}
 
 	signature, err := rsa.SignPKCS1v15(rand.Reader, privateKey, crypto.SHA256, hash.Sum(nil))
 	if err != nil {
-		return "", fmt.Errorf("failed to sign hash: %w", err)
+		return nil, fmt.Errorf("failed to sign hash: %w", err)
 	}
 
-	return base64.StdEncoding.EncodeToString(signature), nil
+	return signature, nil
 }
 
 // VerifyFile verifies the given file's signature using RSA.

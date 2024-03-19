@@ -3,13 +3,12 @@ package main
 import (
 	_ "SafeTransfer/docs"
 	"SafeTransfer/internal/api"
+	"SafeTransfer/internal/config"
 	"SafeTransfer/internal/db"
 	"SafeTransfer/internal/model"
 	"SafeTransfer/internal/repository"
 	"SafeTransfer/internal/service"
 	"SafeTransfer/internal/storage"
-	"crypto/rand"
-	"crypto/rsa"
 	"fmt"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/cors"
@@ -26,19 +25,18 @@ const defaultPort = "8083"
 // @version 1.0
 // @host localhost:8083
 func main() {
+	cfg := config.LoadConfig()
 	database := setupDatabase()
 	defer database.Close()
 
 	ipfsStorage := setupIPFSStorage()
-	privateKey := generatePrivateKey()
 
 	fileRepo := repository.NewFileRepository(database)
 
-	// Now pass fileRepo to NewFileService and NewDownloadService
-	fileService := service.NewFileService(ipfsStorage, fileRepo, privateKey)
+	fileService := service.NewFileService(ipfsStorage, fileRepo)
 	downloadService := service.NewDownloadService(ipfsStorage, fileRepo)
 	userRepo := repository.NewUserRepository(database)
-	userService := service.NewUserService(userRepo)
+	userService := service.NewUserService(userRepo, cfg.JWTSecretKey)
 
 	apiHandler := api.NewAPIHandler(fileService, downloadService, userService)
 	router := setupRouter(apiHandler)
@@ -53,7 +51,7 @@ func setupDatabase() *db.Database {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	err = database.AutoMigrate(&model.File{})
+	err = database.AutoMigrate(&model.File{}, &model.User{})
 	if err != nil {
 		log.Fatalf("Failed to migrate schema: %v", err)
 	}
@@ -63,14 +61,6 @@ func setupDatabase() *db.Database {
 
 func setupIPFSStorage() *storage.IPFSStorage {
 	return storage.NewIPFSStorage("/ip4/127.0.0.1/tcp/5001")
-}
-
-func generatePrivateKey() *rsa.PrivateKey {
-	privateKey, err := rsa.GenerateKey(rand.Reader, 2048)
-	if err != nil {
-		log.Fatalf("Failed to generate private key: %v", err)
-	}
-	return privateKey
 }
 
 func setupRouter(apiHandler *api.Handler) *chi.Mux {
