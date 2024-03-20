@@ -45,7 +45,38 @@ func main() {
 }
 
 func setupDatabase() *db.Database {
-	dataSourceName := "user=postgres dbname=postgres password=postgres host=localhost sslmode=disable"
+	host := os.Getenv("DB_HOST")
+	if host == "" {
+		host = "localhost" // Default value if DB_HOST is not set
+	}
+
+	port := os.Getenv("DB_PORT")
+	if port == "" {
+		port = "5432" // Default value if DB_PORT is not set
+	}
+
+	dbname := os.Getenv("DB_NAME")
+	if dbname == "" {
+		dbname = "postgres" // Default value if DB_NAME is not set
+	}
+
+	user := os.Getenv("DB_USER")
+	if user == "" {
+		user = "postgres" // Default value if DB_USER is not set
+	}
+
+	password := os.Getenv("DB_PASSWORD")
+	if password == "" {
+		password = "postgres" // Default value if DB_PASSWORD is not set
+	}
+
+	sslmode := os.Getenv("SSL_MODE")
+	if sslmode == "" {
+		sslmode = "disable" // Default value if SSL_MODE is not set
+	}
+
+	dataSourceName := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=%s", host, port, dbname, user, password, sslmode)
+
 	database, err := db.NewDatabase(dataSourceName)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
@@ -60,7 +91,12 @@ func setupDatabase() *db.Database {
 }
 
 func setupIPFSStorage() *storage.IPFSStorage {
-	return storage.NewIPFSStorage("/ip4/127.0.0.1/tcp/5001")
+	ipfsAddress := os.Getenv("IPFS_ADDRESS")
+	if ipfsAddress == "" {
+		ipfsAddress = "/ip4/127.0.0.1/tcp/5001" // Default to localhost if not specified
+	}
+
+	return storage.NewIPFSStorage(ipfsAddress)
 }
 
 func setupRouter(apiHandler *api.Handler) *chi.Mux {
@@ -73,9 +109,12 @@ func setupRouter(apiHandler *api.Handler) *chi.Mux {
 
 func corsHandler() func(http.Handler) http.Handler {
 	return cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins: []string{
+			"http://localhost:3000",                       // Allow requests from local development server
+			"https://fdf7-213-156-110-145.ngrok-free.app", // Allow requests from the ngrok URL
+		},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "EthereumAddress"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300,

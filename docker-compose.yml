@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8083:8083"
+    depends_on:
+      db:
+        condition: service_started
+      ipfs:
+        condition: service_started
+    environment:
+      IPFS_ADDRESS: "http://ipfs:5001"
+      JWT_SECRET_KEY: lojdXnvv3bgUmDSDK+z7i2u7TtlWmu5S0nAH0Ki3mHk=
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      SSL_MODE: disable
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+  ipfs:
+    image: ipfs/go-ipfs:latest
+    ports:
+      - "4001:4001"  # IPFS swarm port
+      - "5001:5001"  # IPFS API port
+      - "8080:8080"  # IPFS Gateway port
+    volumes:
+      - ipfs-staging:/export
+      - ipfs-data:/data/ipfs
+
+  frontend:
+    build:
+      context: ${REACT_APP_PATH}
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ${REACT_APP_PATH}/src:/app/src
+      - ${REACT_APP_PATH}/public:/app/public
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    env_file:
+      - ${REACT_APP_PATH}/.env
+
+
+volumes:
+  db-data:
+  ipfs-staging:
+  ipfs-data:

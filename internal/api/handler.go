@@ -38,17 +38,6 @@ func (h *Handler) handleCheckToken(w http.ResponseWriter, r *http.Request) {
 	RespondWithJSON(w, http.StatusOK, map[string]string{"message": "This is a test message for authenticated users."})
 }
 
-// @Summary Upload a file
-// @Description Uploads a file and associates it with the user's Ethereum address
-// @Tags Files
-// @Accept multipart/form-data
-// @Produce json
-// @Param file formData file true "File to upload"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} ErrorResponse
-// @Failure 500 {object} ErrorResponse
-// @Security BearerAuth
-// @Router /upload [post]
 func (h *Handler) handleFileUpload(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(service.MaxMultipartFormSize); err != nil {
 		RespondWithError(w, http.StatusInternalServerError, "Failed to parse form data")

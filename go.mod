@@ -3,7 +3,6 @@ module SafeTransfer
 go 1.22.0
 
 require (
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/ethereum/go-ethereum v1.13.14
 	github.com/go-chi/chi v1.5.5
 	github.com/go-chi/cors v1.2.1
