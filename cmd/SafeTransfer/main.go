@@ -1,7 +1,6 @@
 package main
 
 import (
-	_ "SafeTransfer/docs"
 	"SafeTransfer/internal/api"
 	"SafeTransfer/internal/config"
 	"SafeTransfer/internal/db"
