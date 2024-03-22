@@ -45,7 +45,7 @@ func (is *IPFSStorage) UploadFileToIPFS(file io.Reader, key []byte) (string, []b
 }
 
 // DownloadFileFromIPFS retrieves a file from IPFS using its CID.
-func (is *IPFSStorage) DownloadFileFromIPFS(cid string, key []byte, nonce []byte) (io.ReadCloser, error) {
+func (is *IPFSStorage) DownloadFileFromIPFS(cid string) (io.ReadCloser, error) {
 	// Use the IPFS shell to retrieve the encrypted file
 	reader, err := is.shell.Cat(cid)
 	if err != nil {

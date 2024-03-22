@@ -8,13 +8,18 @@ import (
 	"SafeTransfer/internal/repository"
 	"SafeTransfer/internal/service"
 	"SafeTransfer/internal/storage"
+	"context"
 	"fmt"
-	"github.com/go-chi/chi"
-	"github.com/go-chi/cors"
-	"github.com/swaggo/http-swagger"
 	"log"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/cors"
+	"github.com/swaggo/http-swagger"
 )
 
 const defaultPort = "8083"
@@ -31,9 +36,9 @@ func main() {
 	ipfsStorage := setupIPFSStorage()
 
 	fileRepo := repository.NewFileRepository(database)
-
 	fileService := service.NewFileService(ipfsStorage, fileRepo)
 	downloadService := service.NewDownloadService(ipfsStorage, fileRepo)
+
 	userRepo := repository.NewUserRepository(database)
 	userService := service.NewUserService(userRepo, cfg.JWTSecretKey)
 
@@ -44,35 +49,12 @@ func main() {
 }
 
 func setupDatabase() *db.Database {
-	host := os.Getenv("DB_HOST")
-	if host == "" {
-		host = "localhost" // Default value if DB_HOST is not set
-	}
-
-	port := os.Getenv("DB_PORT")
-	if port == "" {
-		port = "5432" // Default value if DB_PORT is not set
-	}
-
-	dbname := os.Getenv("DB_NAME")
-	if dbname == "" {
-		dbname = "postgres" // Default value if DB_NAME is not set
-	}
-
-	user := os.Getenv("DB_USER")
-	if user == "" {
-		user = "postgres" // Default value if DB_USER is not set
-	}
-
-	password := os.Getenv("DB_PASSWORD")
-	if password == "" {
-		password = "postgres" // Default value if DB_PASSWORD is not set
-	}
-
-	sslmode := os.Getenv("SSL_MODE")
-	if sslmode == "" {
-		sslmode = "disable" // Default value if SSL_MODE is not set
-	}
+	host := getEnvOrDefault("DB_HOST", "localhost")
+	port := getEnvOrDefault("DB_PORT", "5432")
+	dbname := getEnvOrDefault("DB_NAME", "postgres")
+	user := getEnvOrDefault("DB_USER", "postgres")
+	password := getEnvOrDefault("DB_PASSWORD", "postgres")
+	sslmode := getEnvOrDefault("SSL_MODE", "disable")
 
 	dataSourceName := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=%s", host, port, dbname, user, password, sslmode)
 
@@ -90,11 +72,7 @@ func setupDatabase() *db.Database {
 }
 
 func setupIPFSStorage() *storage.IPFSStorage {
-	ipfsAddress := os.Getenv("IPFS_ADDRESS")
-	if ipfsAddress == "" {
-		ipfsAddress = "/ip4/127.0.0.1/tcp/5001" // Default to localhost if not specified
-	}
-
+	ipfsAddress := getEnvOrDefault("IPFS_ADDRESS", "/ip4/127.0.0.1/tcp/5001")
 	return storage.NewIPFSStorage(ipfsAddress)
 }
 
@@ -108,10 +86,7 @@ func setupRouter(apiHandler *api.Handler) *chi.Mux {
 
 func corsHandler() func(http.Handler) http.Handler {
 	return cors.New(cors.Options{
-		AllowedOrigins: []string{
-			"http://localhost:3000",                       // Allow requests from local development server
-			"https://fdf7-213-156-110-145.ngrok-free.app", // Allow requests from the ngrok URL
-		},
+		AllowedOrigins:   []string{"http://localhost:3000"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "EthereumAddress"},
 		ExposedHeaders:   []string{"Link"},
@@ -121,15 +96,46 @@ func corsHandler() func(http.Handler) http.Handler {
 }
 
 func startServer(router *chi.Mux) {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = defaultPort
-	}
-
+	port := getEnvOrDefault("PORT", defaultPort)
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Starting SafeTransfer server on %s...\n", addr)
 
-	if err := http.ListenAndServe(addr, router); err != nil {
-		log.Fatal("Error starting server:", err)
+	server := &http.Server{
+		Addr:              addr,
+		Handler:           router,
+		ReadHeaderTimeout: 30 * time.Second,
 	}
+
+	go func() {
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("Error starting server: %v", err)
+		}
+	}()
+
+	gracefulShutdown(server)
+}
+
+func gracefulShutdown(server *http.Server) {
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := server.Shutdown(ctx); err != nil {
+		log.Fatalf("Server forced to shutdown: %v", err)
+	}
+
+	log.Println("Server exited gracefully")
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	value := os.Getenv(key)
+	if value == "" {
+		return defaultValue
+	}
+	return value
 }

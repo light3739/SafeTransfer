@@ -42,7 +42,7 @@ func (ds *DownloadService) DownloadFile(cid string) (io.Reader, error) {
 		return nil, fmt.Errorf("failed to decode nonce: %w", err)
 	}
 
-	encryptedFile, err := ds.IPFSStorage.DownloadFileFromIPFS(cid, encryptionKey, nonce)
+	encryptedFile, err := ds.IPFSStorage.DownloadFileFromIPFS(cid)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file from IPFS: %w", err)
 	}

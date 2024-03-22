@@ -3,7 +3,7 @@ package api
 import (
 	"SafeTransfer/internal/service"
 	"encoding/json"
-	"github.com/go-chi/chi"
+	"github.com/go-chi/chi/v5"
 	"log"
 	"net/http"
 	"strings"
@@ -83,23 +83,22 @@ func (h *Handler) handleFileDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleVerifySignature(w http.ResponseWriter, r *http.Request) {
-	type request struct {
+	var req struct {
 		EthereumAddress string `json:"ethereumAddress"`
 		Signature       string `json:"signature"`
-		Message         string `json:"message"` // Add the message field
+		Message         string `json:"message"`
 	}
 
-	var req request
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		RespondWithError(w, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	log.Printf("Received address: %s, signature: %s, message: %s\n", req.EthereumAddress, req.Signature, req.Message) // Update the log to include the message
+	log.Printf("Received address: %s, signature: %s, message: %s\n", req.EthereumAddress, req.Signature, req.Message)
 
 	// Verify the signature against the message instead of the nonce
 	recoveredAddress, err := h.UserService.VerifySignature(req.Message, req.Signature)
-	if err != nil || strings.ToLower(recoveredAddress) != strings.ToLower(req.EthereumAddress) {
+	if err != nil || !strings.EqualFold(recoveredAddress, req.EthereumAddress) {
 		RespondWithError(w, http.StatusUnauthorized, "Invalid signature")
 		return
 	}
