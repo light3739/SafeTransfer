@@ -1,6 +1,7 @@
 package crypto
 
 import (
+	"bufio"
 	"crypto"
 	"crypto/aes"
 	"crypto/cipher"
@@ -21,7 +22,6 @@ func newAesCtrStream(key, iv []byte) (cipher.Stream, error) {
 	return cipher.NewCTR(block, iv), nil
 }
 
-// EncryptFile encrypts the given file using AES in CTR mode.
 func EncryptFile(file io.Reader, key []byte) (io.Reader, []byte, error) {
 	iv := make([]byte, aes.BlockSize)
 	if _, err := io.ReadFull(rand.Reader, iv); err != nil {
@@ -33,18 +33,19 @@ func EncryptFile(file io.Reader, key []byte) (io.Reader, []byte, error) {
 		return nil, nil, fmt.Errorf("failed to initialize AES CTR stream: %w", err)
 	}
 
-	encryptedFile := &cipher.StreamReader{S: stream, R: file}
+	bufferedFile := bufio.NewReader(file)
+	encryptedFile := &cipher.StreamReader{S: stream, R: bufferedFile}
 	return encryptedFile, iv, nil
 }
 
-// DecryptFile decrypts the given file using AES in CTR mode.
 func DecryptFile(encryptedFile io.Reader, key []byte, iv []byte) (io.Reader, error) {
 	stream, err := newAesCtrStream(key, iv)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize AES CTR stream: %w", err)
 	}
 
-	decryptedFile := &cipher.StreamReader{S: stream, R: encryptedFile}
+	bufferedFile := bufio.NewReader(encryptedFile)
+	decryptedFile := &cipher.StreamReader{S: stream, R: bufferedFile}
 	return decryptedFile, nil
 }
 
