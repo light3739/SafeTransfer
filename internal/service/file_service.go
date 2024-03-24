@@ -106,7 +106,7 @@ func parsePublicKey(publicKeyStr string) (*rsa.PublicKey, error) {
 }
 
 // processFile handles the processing of the file, including signing and encryption key generation.
-func (fs *FileService) processFile(file multipart.File, privateKey *rsa.PrivateKey) (signatureStr string, publicKeyStr string, key []byte, originalFileHash []byte, err error) {
+func (fs *FileService) processFile(file io.ReadSeeker, privateKey *rsa.PrivateKey) (signatureStr string, publicKeyStr string, key []byte, originalFileHash []byte, err error) {
 	// Hash the file content
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
