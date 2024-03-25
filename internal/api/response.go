@@ -23,10 +23,11 @@ func RespondWithJSON(w http.ResponseWriter, status int, data interface{}) {
 	}
 }
 
-// SendFile sends the file data in the response.
-func SendFile(w http.ResponseWriter, reader io.Reader, filename string) {
+// SendFile sends the file data in the response, including the SHA-256 hash of the file content in the headers.
+func SendFile(w http.ResponseWriter, reader io.Reader, filename string, hash string) {
 	w.Header().Set("Content-Disposition", "attachment; filename="+filename)
 	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Header().Set("X-File-Hash", hash) // Include the SHA-256 hash in the response headers
 	_, err := io.Copy(w, reader)
 	if err != nil {
 		http.Error(w, "Failed to send file", http.StatusInternalServerError)

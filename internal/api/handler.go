@@ -73,13 +73,13 @@ func (h *Handler) handleFileDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	reader, err := h.DownloadService.DownloadFile(cid)
+	reader, hash, err := h.DownloadService.DownloadFile(cid) // Capture the hash here
 	if err != nil {
 		RespondWithError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	SendFile(w, reader, cid)
+	SendFile(w, reader, cid, hash)
 }
 
 func (h *Handler) handleVerifySignature(w http.ResponseWriter, r *http.Request) {
