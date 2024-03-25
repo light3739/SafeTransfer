@@ -41,7 +41,7 @@ func (fs *FileService) UploadFile(file multipart.File, ethereumAddress string) (
 		return "", "", fmt.Errorf("failed to generate private key: %w", err)
 	}
 
-	signatureStr, publicKeyStr, key, originalFileHash, err := fs.processFile(file, privateKey)
+	signatureStr, publicKeyStr, key, originalFileHashStr, err := fs.processFile(file, privateKey)
 	if err != nil {
 		return "", "", err
 	}
@@ -82,7 +82,7 @@ func (fs *FileService) UploadFile(file multipart.File, ethereumAddress string) (
 		return "", "", err
 	}
 
-	return cid, base64.StdEncoding.EncodeToString(originalFileHash), nil
+	return cid, originalFileHashStr, nil
 }
 
 // parsePublicKey parses a base64-encoded public key string into an *rsa.PublicKey.
@@ -106,40 +106,40 @@ func parsePublicKey(publicKeyStr string) (*rsa.PublicKey, error) {
 }
 
 // processFile handles the processing of the file, including signing and encryption key generation.
-func (fs *FileService) processFile(file io.ReadSeeker, privateKey *rsa.PrivateKey) (signatureStr string, publicKeyStr string, key []byte, originalFileHash []byte, err error) {
+func (fs *FileService) processFile(file io.ReadSeeker, privateKey *rsa.PrivateKey) (signatureStr string, publicKeyStr string, key []byte, originalFileHashStr string, err error) {
 	// Hash the file content
 	hash := sha256.New()
 	if _, err := io.Copy(hash, file); err != nil {
-		return "", "", nil, nil, fmt.Errorf("failed to hash file: %w", err)
+		return "", "", nil, "", fmt.Errorf("failed to hash file: %w", err)
 	}
-	originalFileHash = hash.Sum(nil)
-
+	originalFileHashBytes := hash.Sum(nil)
+	originalFileHashStr = fmt.Sprintf("%x", originalFileHashBytes)
 	// Reset the file reader to the beginning for signing
 	if _, err := file.Seek(0, io.SeekStart); err != nil {
-		return "", "", nil, nil, fmt.Errorf("failed to reset file reader: %w", err)
+		return "", "", nil, "", fmt.Errorf("failed to reset file reader: %w", err)
 	}
 
 	// Sign the file
 	signature, err := crypto.SignFile(file, privateKey)
 	if err != nil {
-		return "", "", nil, nil, fmt.Errorf("failed to sign file: %w", err)
+		return "", "", nil, "", fmt.Errorf("failed to sign file: %w", err)
 	}
 	signatureStr = base64.StdEncoding.EncodeToString(signature)
 
 	// Encode the public key
 	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&privateKey.PublicKey)
 	if err != nil {
-		return "", "", nil, nil, fmt.Errorf("failed to marshal public key: %w", err)
+		return "", "", nil, "", fmt.Errorf("failed to marshal public key: %w", err)
 	}
 	publicKeyStr = base64.StdEncoding.EncodeToString(publicKeyBytes)
 
 	// Generate an encryption key
 	key = make([]byte, encryptionKeySize)
 	if _, err := rand.Read(key); err != nil {
-		return "", "", nil, nil, fmt.Errorf("failed to generate encryption key: %w", err)
+		return "", "", nil, "", fmt.Errorf("failed to generate encryption key: %w", err)
 	}
 
-	return signatureStr, publicKeyStr, key, originalFileHash, nil
+	return signatureStr, publicKeyStr, key, originalFileHashStr, nil
 }
 
 // generateRSAKeyPair generates a new RSA key pair with the specified key size.
