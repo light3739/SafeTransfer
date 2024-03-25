@@ -9,6 +9,7 @@ import (
 	"SafeTransfer/internal/service"
 	"SafeTransfer/internal/storage"
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -86,10 +87,10 @@ func setupRouter(apiHandler *api.Handler) *chi.Mux {
 
 func corsHandler() func(http.Handler) http.Handler {
 	return cors.New(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3000"},
+		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "EthereumAddress"},
-		ExposedHeaders:   []string{"Link"},
+		ExposedHeaders:   []string{"Link", "X-File-Hash"},
 		AllowCredentials: true,
 		MaxAge:           300,
 	}).Handler
@@ -107,7 +108,7 @@ func startServer(router *chi.Mux) {
 	}
 
 	go func() {
-		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			log.Fatalf("Error starting server: %v", err)
 		}
 	}()
