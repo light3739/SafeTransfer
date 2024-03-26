@@ -2,7 +2,6 @@ package main
 
 import (
 	"SafeTransfer/internal/api"
-	"SafeTransfer/internal/config"
 	"SafeTransfer/internal/db"
 	"SafeTransfer/internal/model"
 	"SafeTransfer/internal/repository"
@@ -20,17 +19,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/cors"
-	"github.com/swaggo/http-swagger"
 )
 
 const defaultPort = "8083"
 
-// @title SafeTransfer API
-// @description This is a sample server for SafeTransfer.
-// @version 1.0
-// @host localhost:8083
 func main() {
-	cfg := config.LoadConfig()
 	database := setupDatabase()
 	defer database.Close()
 
@@ -41,7 +34,8 @@ func main() {
 	downloadService := service.NewDownloadService(ipfsStorage, fileRepo)
 
 	userRepo := repository.NewUserRepository(database)
-	userService := service.NewUserService(userRepo, cfg.JWTSecretKey)
+	JWTSecretKey := os.Getenv("JWT_SECRET_KEY")
+	userService := service.NewUserService(userRepo, JWTSecretKey)
 
 	apiHandler := api.NewAPIHandler(fileService, downloadService, userService)
 	router := setupRouter(apiHandler)
@@ -80,7 +74,6 @@ func setupIPFSStorage() *storage.IPFSStorage {
 func setupRouter(apiHandler *api.Handler) *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(corsHandler())
-	router.Mount("/swagger", httpSwagger.WrapHandler)
 	apiHandler.RegisterRoutes(router)
 	return router
 }

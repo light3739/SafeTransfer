@@ -14,7 +14,7 @@ services:
         condition: service_started
     environment:
       IPFS_ADDRESS: "http://ipfs:5001"
-      JWT_SECRET_KEY: lojdXnvv3bgUmDSDK+z7i2u7TtlWmu5S0nAH0Ki3mHk=
+      JWT_SECRET_KEY: EXAMPLE_JWT_SECRET
       DB_HOST: db
       DB_PORT: 5432
       DB_NAME: postgres
