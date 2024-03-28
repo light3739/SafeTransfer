@@ -7,6 +7,7 @@ import (
 	"SafeTransfer/internal/repository"
 	"SafeTransfer/internal/service"
 	"SafeTransfer/internal/storage"
+	"SafeTransfer/utils"
 	"context"
 	"errors"
 	"fmt"
@@ -34,8 +35,11 @@ func main() {
 	downloadService := service.NewDownloadService(ipfsStorage, fileRepo)
 
 	userRepo := repository.NewUserRepository(database)
-	JWTSecretKey := os.Getenv("JWT_SECRET_KEY")
-	userService := service.NewUserService(userRepo, JWTSecretKey)
+	JWTSecretKey, err := os.ReadFile("/run/secrets/jwt_secret")
+	if err != nil {
+		log.Fatalf("Failed to read JWT secret key: %v", err)
+	}
+	userService := service.NewUserService(userRepo, string(JWTSecretKey))
 
 	apiHandler := api.NewAPIHandler(fileService, downloadService, userService)
 	router := setupRouter(apiHandler)
@@ -44,14 +48,19 @@ func main() {
 }
 
 func setupDatabase() *db.Database {
-	host := getEnvOrDefault("DB_HOST", "localhost")
-	port := getEnvOrDefault("DB_PORT", "5432")
-	dbname := getEnvOrDefault("DB_NAME", "postgres")
-	user := getEnvOrDefault("DB_USER", "postgres")
-	password := getEnvOrDefault("DB_PASSWORD", "postgres")
-	sslmode := getEnvOrDefault("SSL_MODE", "disable")
+	host := utils.GetEnvOrDefault("DB_HOST", "localhost")
+	port := utils.GetEnvOrDefault("DB_PORT", "5432")
+	dbname := utils.GetEnvOrDefault("DB_NAME", "postgres")
+	user := utils.GetEnvOrDefault("DB_USER", "postgres")
+	sslmode := utils.GetEnvOrDefault("SSL_MODE", "disable")
 
-	dataSourceName := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=%s", host, port, dbname, user, password, sslmode)
+	// Read the database password from the mounted secret file
+	password, err := os.ReadFile("/run/secrets/db_password")
+	if err != nil {
+		log.Fatalf("Failed to read database password: %v", err)
+	}
+
+	dataSourceName := fmt.Sprintf("host=%s port=%s dbname=%s user=%s password=%s sslmode=%s", host, port, dbname, user, string(password), sslmode)
 
 	database, err := db.NewDatabase(dataSourceName)
 	if err != nil {
@@ -65,9 +74,8 @@ func setupDatabase() *db.Database {
 
 	return database
 }
-
 func setupIPFSStorage() *storage.IPFSStorage {
-	ipfsAddress := getEnvOrDefault("IPFS_ADDRESS", "/ip4/127.0.0.1/tcp/5001")
+	ipfsAddress := utils.GetEnvOrDefault("IPFS_ADDRESS", "/ip4/127.0.0.1/tcp/5001")
 	return storage.NewIPFSStorage(ipfsAddress)
 }
 
@@ -90,7 +98,7 @@ func corsHandler() func(http.Handler) http.Handler {
 }
 
 func startServer(router *chi.Mux) {
-	port := getEnvOrDefault("PORT", defaultPort)
+	port := utils.GetEnvOrDefault("PORT", defaultPort)
 	addr := fmt.Sprintf(":%s", port)
 	fmt.Printf("Starting SafeTransfer server on %s...\n", addr)
 
@@ -124,12 +132,4 @@ func gracefulShutdown(server *http.Server) {
 	}
 
 	log.Println("Server exited gracefully")
-}
-
-func getEnvOrDefault(key, defaultValue string) string {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	return value
 }

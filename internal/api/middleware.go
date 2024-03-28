@@ -20,13 +20,20 @@ func JWTMiddleware(next http.Handler) http.Handler {
 		// Extract the token from the Authorization header
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
+		// Read the JWT secret key from the mounted secret file
+		jwtSecretKey, err := os.ReadFile("/run/secrets/jwt_secret")
+		if err != nil {
+			http.Error(w, "Failed to read JWT secret key", http.StatusInternalServerError)
+			return
+		}
+
 		// Parse and verify the token
 		token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 			// Don't forget to validate the alg is what you expect
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 			}
-			return []byte(os.Getenv("JWT_SECRET_KEY")), nil
+			return jwtSecretKey, nil
 		})
 
 		if err != nil {

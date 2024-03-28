@@ -91,9 +91,9 @@ func (us *UserService) VerifySignature(message, signature string) (string, error
 
 // GenerateJWT generates a JWT for a given user.
 func (us *UserService) GenerateJWT(ethereumAddress string) (string, error) {
-	jwtSecretKey := os.Getenv("JWT_SECRET_KEY")
-	if jwtSecretKey == "" {
-		return "", errors.New("JWT secret key is not set")
+	jwtSecretKey, err := os.ReadFile("/run/secrets/jwt_secret")
+	if err != nil {
+		return "", errors.New("failed to read JWT secret key")
 	}
 
 	claims := jwt.MapClaims{

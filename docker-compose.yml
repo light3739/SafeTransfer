@@ -5,60 +5,107 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    restart: always
     ports:
       - "8083:8083"
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
       ipfs:
         condition: service_started
     environment:
       IPFS_ADDRESS: "http://ipfs:5001"
-      JWT_SECRET_KEY: EXAMPLE_JWT_SECRET
       DB_HOST: db
       DB_PORT: 5432
-      DB_NAME: postgres
-      DB_USER: postgres
-      DB_PASSWORD: postgres
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
       SSL_MODE: disable
+    env_file:
+      - .env
+    secrets:
+      - jwt_secret
+      - db_password
+    volumes:
+      - app-data:/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - app-db
+      - app-frontend
+      - app-ipfs
 
   db:
-    image: postgres:latest
+    image: postgres:16-alpine
     environment:
-      POSTGRES_DB: postgres
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+    env_file:
+      - .env
+    secrets:
+      - db_password
     volumes:
       - db-data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    cpus: 0.3
+    networks:
+      - app-db
 
   ipfs:
     image: ipfs/go-ipfs:latest
-    ports:
-      - "4001:4001"  # IPFS swarm port
-      - "5001:5001"  # IPFS API port
-      - "8080:8080"  # IPFS Gateway port
     volumes:
       - ipfs-staging:/export
       - ipfs-data:/data/ipfs
+    mem_limit: 1024m
+    cpus: 0.7
+    networks:
+      - app-ipfs
 
   frontend:
     build:
-      context: ${REACT_APP_PATH}
+      context: ${REACT_APP_DOCKERFILE}
       dockerfile: Dockerfile
+      args:
+        REACT_APP_BACK_END_API_BASE_URL: ${REACT_APP_BACK_END_API_BASE_URL}
     ports:
-      - "3000:3000"
-    volumes:
-      - ${REACT_APP_PATH}/src:/app/src
-      - ${REACT_APP_PATH}/public:/app/public
-    environment:
-      - CHOKIDAR_USEPOLLING=true
+      - "80:80"
+    depends_on:
+      - app
     env_file:
-      - ${REACT_APP_PATH}/.env
-
+      - .env
+    volumes:
+      - ./frontend/src:/app/src
+      - ./frontend/public:/app/public
+    mem_limit: 256m
+    cpus: 0.3
+    networks:
+      - app-frontend
 
 volumes:
   db-data:
   ipfs-staging:
   ipfs-data:
+  app-data:
+
+secrets:
+  jwt_secret:
+    file: ./secrets/jwt_secret.txt
+  db_password:
+    file: ./secrets/db_password.txt
+
+networks:
+  app-db:
+    name: myapp-app-db
+  app-frontend:
+    name: myapp-app-frontend
+  app-ipfs:
+    name: myapp-app-ipfs
