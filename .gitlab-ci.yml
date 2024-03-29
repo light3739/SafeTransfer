@@ -1,0 +1,29 @@
+image: docker:stable
+
+stages:
+  - build
+
+services:
+  - name: postgres:16-alpine
+    alias: db
+  - name: ipfs/go-ipfs:latest
+    alias: ipfs
+  - docker:dind
+
+variables:
+  DOCKER_TLS_CERTDIR: ""
+  POSTGRES_DB: ${DB_NAME}
+  POSTGRES_USER: ${DB_USER}
+  POSTGRES_PASSWORD: ${DB_PASSWORD}
+  JWT_SECRET: ${JWT_SECRET}
+
+before_script:
+  - docker info
+  - echo "${DB_PASSWORD}" > ./secrets/db_password.txt
+  - echo "${JWT_SECRET}" > ./secrets/jwt_secret.txt
+
+build-app:
+  stage: build
+  script:
+    - echo "Building app using Dockerfile..."
+    - docker build -t app:latest .
